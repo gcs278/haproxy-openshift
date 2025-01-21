@@ -31,30 +31,47 @@ static_resources:
               - match: { prefix: "/" }
                 route: { cluster: perf-test-hydra-http-1 }
           http_filters:
-          - name: envoy.filters.http.stateful_session
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.stateful_session.v3.StatefulSession
-              session_state:
-                name: envoy.http.stateful_session.cookie
-                typed_config:
-                  "@type": type.googleapis.com/envoy.extensions.http.stateful_session.cookie.v3.CookieBasedSessionState
-                  cookie:
-                    name: global-session-cookie
-                    ttl: 120s
-          - name: envoy.filters.http.stateful_session
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.stateful_session.v3.StatefulSession
-              session_state:
-                name: envoy.http.stateful_session.header
-                typed_config:
-                  "@type": type.googleapis.com/envoy.extensions.http.stateful_session.header.v3.HeaderBasedSessionState
-                  name: session-header
           - name: envoy.filters.http.router
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
   
   clusters:
   - name: perf-test-hydra-http-1
+    filters:
+    - name: envoy.filters.http.stateful_session
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.stateful_session.v3.StatefulSession
+        session_state:
+          name: envoy.http.stateful_session.cookie
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.http.stateful_session.cookie.v3.CookieBasedSessionState
+            cookie:
+              name: global-session-cookie
+              ttl: 120s
+#    - name: envoy.filters.network.http_connection_manager
+#      typed_config:
+#        "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+#        stat_prefix: ingress_http
+#        codec_type: AUTO
+#        http_filters:
+#        - name: envoy.filters.http.stateful_session
+#          typed_config:
+#            "@type": type.googleapis.com/envoy.extensions.filters.http.stateful_session.v3.StatefulSession
+#            session_state:
+#              name: envoy.http.stateful_session.cookie
+#              typed_config:
+#                "@type": type.googleapis.com/envoy.extensions.http.stateful_session.cookie.v3.CookieBasedSessionState
+#                cookie:
+#                  name: global-session-cookie
+#                  ttl: 120s
+#        - name: envoy.filters.http.stateful_session
+#          typed_config:
+#            "@type": type.googleapis.com/envoy.extensions.filters.http.stateful_session.v3.StatefulSession
+#            session_state:
+#              name: envoy.http.stateful_session.header
+#              typed_config:
+#                "@type": type.googleapis.com/envoy.extensions.http.stateful_session.header.v3.HeaderBasedSessionState
+#                name: session-header
     health_checks:
       timeout:
         seconds: 1

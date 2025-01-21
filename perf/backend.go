@@ -25,6 +25,8 @@ var listener net.Listener
 func debugServerHandler(w http.ResponseWriter, r *http.Request) {
 	msg := fmt.Sprintf("Backend Address: %s\n", listener.Addr().String())
 	w.Write([]byte(msg))
+	pathMsg := fmt.Sprintf("Path: %s\n", r.URL.Path)
+	w.Write([]byte(pathMsg))
 	w.Write([]byte("Request Headers:\n"))
 	for name, values := range r.Header {
 		// Loop over all values for the name.
@@ -45,7 +47,7 @@ func (c *ServeBackendCmd) Run(p *ProgramCtx) error {
 	}
 
 	var err error
-	listener, err = net.Listen("tcp", fmt.Sprintf("%v:0", listenAddress))
+	listener, err = net.Listen("tcp", fmt.Sprintf("%v:%v", listenAddress, c.ListenPort))
 	if err != nil {
 		return err
 	}
@@ -60,6 +62,7 @@ func (c *ServeBackendCmd) Run(p *ProgramCtx) error {
 		serverHandler = http.FileServer(http.FS(BackendFS))
 	}
 
+	fmt.Println(listener.Addr().(*net.TCPAddr).Port)
 	httpServer := &http.Server{
 		Handler:      serverHandler,
 		Addr:         fmt.Sprintf("%v:%v", listenAddress, p.Port),
@@ -90,60 +93,64 @@ func (c *ServeBackendCmd) Run(p *ProgramCtx) error {
 		listenAddress = mustResolveHostIP()
 	}
 
-	boundBackend := BoundBackend{
-		Backend: Backend{
-			Name:        c.Name,
-			TrafficType: t,
-		},
-		ListenAddress: listenAddress,
-		Port:          listener.Addr().(*net.TCPAddr).Port,
-	}
+	if !c.SkipRegistration {
 
-	jsonValue, err := json.Marshal(boundBackend)
-	if err != nil {
-		return err
-	}
+		boundBackend := BoundBackend{
+			Backend: Backend{
+				Name:        c.Name,
+				TrafficType: t,
+			},
+			ListenAddress: listenAddress,
+			Port:          listener.Addr().(*net.TCPAddr).Port,
+		}
 
-	var (
-		resp    *http.Response
-		retries = 17
-	)
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	url := fmt.Sprintf("http://127.0.0.1:%d/register", p.Port)
-
-	for retries > 0 {
-		request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonValue))
+		jsonValue, err := json.Marshal(boundBackend)
 		if err != nil {
 			return err
 		}
-		request.Header.Set("Content-Type", "application/json; charset=UTF-8")
-		request.Close = true
-		if resp, err = client.Do(request); err == nil {
-			break
+
+		var (
+			resp    *http.Response
+			retries = 17
+		)
+
+		client := &http.Client{
+			Timeout: 10 * time.Second,
 		}
-		retries -= 1
-		log.Printf("#%v retries remaining", retries)
-		time.Sleep(250 * time.Millisecond)
-	}
 
-	if err != nil {
-		return fmt.Errorf("POST failed for %+v: %v", boundBackend, err)
-	}
+		url := fmt.Sprintf("http://127.0.0.1:%d/register", p.Port)
 
-	_, err = io.ReadAll(resp.Body)
-	if err != nil {
+		for retries > 0 {
+			request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonValue))
+			if err != nil {
+				return err
+			}
+			request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+			request.Close = true
+			if resp, err = client.Do(request); err == nil {
+				break
+			}
+			retries -= 1
+			log.Printf("#%v retries remaining", retries)
+			time.Sleep(250 * time.Millisecond)
+		}
+
+		if err != nil {
+			return fmt.Errorf("POST failed for %+v: %v", boundBackend, err)
+		}
+
+		var body []byte
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			resp.Body.Close()
+			return err
+		}
+
 		resp.Body.Close()
-		return err
-	}
 
-	resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("registration failed for %+v; Status=%v", boundBackend, resp.Status)
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("registration failed for %+v; Status=%v; Body=%v", boundBackend, resp.Status, string(body))
+		}
 	}
 
 	if err := g.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {

@@ -72,10 +72,12 @@ type ServeBackendsCmd struct {
 }
 
 type ServeBackendCmd struct {
-	Name          string      `default:""`
-	ListenAddress string      `default:""`
-	TrafficType   TrafficType `default:""`
-	InfoServer    bool        `help:"Enable server to respond with server info" short:"I" default:"false"`
+	Name             string      `default:"" json:"name,omitempty"`
+	ListenAddress    string      `default:"" json:"listen_address,omitempty"`
+	TrafficType      TrafficType `default:"" json:"traffic_type,omitempty"`
+	InfoServer       bool        `help:"Enable server to respond with server info" short:"I" default:"false" json:"info_server,omitempty"`
+	SkipRegistration bool        `help:"Disable metadata server registration" short:"s" default:"false" json:"skip_registration,omitempty"`
+	ListenPort       int         `help:"Port for test server to listen on" default:"0" json:"listen_port,omitempty"`
 }
 
 type VersionCmd struct{}
