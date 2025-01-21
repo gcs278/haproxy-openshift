@@ -1,4 +1,4 @@
-module github.com/frobware/haproxy-openshift/perf
+module github.com/gcs278/haproxy-openshift/perf
 
 go 1.19
 
